@@ -29,6 +29,9 @@
 
 using namespace std;
 
+namespace std {
+namespace experimental {
+
 thread::id get_id() {
   return this_thread::get_id();
 }
@@ -40,16 +43,16 @@ int get_next_id(atomic<int>& id_gen) {
 }
 
 TEST(ExecutorTest, SpawnFuture) {
-  experimental::thread_per_task_executor& tpte =
-    experimental::thread_per_task_executor::get_executor();
+  thread_per_task_executor& tpte =
+    thread_per_task_executor::get_executor();
   atomic<int> id_gen;
   atomic_init(&id_gen, 0);
 
   constexpr int NUM_ITER = 100;
   vector<future<int>> futures;
   for (int i = 0; i < NUM_ITER; ++i) {
-    futures.emplace_back(move(experimental::spawn(tpte,
-        experimental::make_package(bind(&get_next_id, ref(id_gen))))));
+    futures.emplace_back(move(spawn(tpte,
+        make_package(bind(&get_next_id, ref(id_gen))))));
   }
 
   EXPECT_EQ(NUM_ITER, futures.size());
@@ -64,16 +67,15 @@ TEST(ExecutorTest, SpawnFuture) {
 }
 
 TEST(ExecutorTest, ExecutorRefSpawnFuture) {
-  experimental::executor_ref<experimental::thread_per_task_executor> tpte_ref(
-      experimental::thread_per_task_executor::get_executor());
+  executor_ref<thread_per_task_executor> tpte_ref(
+      thread_per_task_executor::get_executor());
   atomic<int> id_gen;
   atomic_init(&id_gen, 0);
 
   constexpr int NUM_ITER = 100;
   set<int> ids;
   for (int i = 0; i < NUM_ITER; ++i) {
-    auto fut = experimental::spawn(tpte_ref,
-        experimental::make_package(bind(&get_next_id, ref(id_gen))));
+    auto fut = spawn(tpte_ref, make_package(bind(&get_next_id, ref(id_gen))));
     ids.insert(fut.get());
   }
 
@@ -81,10 +83,9 @@ TEST(ExecutorTest, ExecutorRefSpawnFuture) {
 }
 
 TEST(ExecutorTest, ExecutorRefCopy) {
-  experimental::thread_pool_executor tpe(1);
-  experimental::executor_ref<experimental::thread_pool_executor> tpe_ref(tpe);
-  experimental::executor_ref<experimental::thread_pool_executor> tpe_ref2(
-      tpe_ref);
+  thread_pool_executor tpe(1);
+  executor_ref<thread_pool_executor> tpe_ref(tpe);
+  executor_ref<thread_pool_executor> tpe_ref2(tpe_ref);
   
   // Should be enough to check the contained executors.
   EXPECT_EQ(&tpe_ref.get_contained_executor(),
@@ -95,10 +96,10 @@ TEST(ExecutorTest, ExecutorRefCopy) {
   constexpr int NUM_ITER = 100;
   set<thread::id> ids;
   for (int i = 0; i < NUM_ITER; ++i) {
-    auto fut = experimental::spawn(tpe_ref,
-        experimental::make_package(&get_id));
-    auto fut2 = experimental::spawn(tpe_ref2,
-        experimental::make_package(&get_id));
+    auto fut = spawn(tpe_ref,
+        make_package(&get_id));
+    auto fut2 = spawn(tpe_ref2,
+        make_package(&get_id));
 
     ids.insert(fut.get());
     ids.insert(fut2.get());
@@ -108,10 +109,10 @@ TEST(ExecutorTest, ExecutorRefCopy) {
 }
 
 TEST(ExecutorTest, ErasedExecutors) {
-  experimental::thread_pool_executor tpe(1);
+  thread_pool_executor tpe(1);
   // The erased executor should work just the same as any other executor but
   // requires that a function_wrapper be passed in.
-  experimental::executor exec(tpe);
+  executor<thread_pool_executor> exec(tpe);
 
   constexpr int NUM_ITER = 100;
   set<thread::id> ids;
@@ -121,7 +122,7 @@ TEST(ExecutorTest, ErasedExecutors) {
   atomic_init(&count_down, NUM_ITER-1);
   for (int i = 0; i < NUM_ITER; ++i) {
     // Specialized spawn
-    experimental::spawn(
+    spawn(
       exec,
       [&run_count] {run_count++;},
       [&count_down] {count_down--;});
@@ -136,11 +137,14 @@ TEST(ExecutorTest, ErasedExecutors) {
 }
 
 TEST(ExecutorTest, SpawnContinuation) {
-  experimental::thread_pool_executor tpe(1);
+  thread_pool_executor tpe(1);
   // TODO(mysen): add a test here
 }
 
 TEST(ExecutorTest, BaseSpawn) {
-  experimental::thread_pool_executor tpe(1);
+  thread_pool_executor tpe(1);
   // TODO(mysen): add a test here
 }
+
+}  // namespace std
+}  // namespace experimental

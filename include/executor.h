@@ -104,44 +104,29 @@ class executor_ref<Exec,
   Exec exec_;
 };
 
-// Fully type erased executor which ends up taking in a concrete wrapper which
-// can accept both normal and move-only types.
-class executor {
+class executor_concept {
  public:
-  typedef function_wrapper wrapper_type;
+  virtual void spawn(function_wrapper&& func) = 0;
+};
+
+template <typename Exec>
+class executor : public executor_concept {
  public:
   executor() = delete;
+  // TODO(ccmysen): figure out if we want to make copyable
   executor(const executor& other) : exec_(other.exec_) {}
-  executor(executor&& other) : exec_() {
-    other.exec_.swap(exec_);
-  }
+  executor(executor&& other) : exec_(other.exec_) {}
 
-  template <typename Exec>
-  executor(Exec& exec) : exec_(new executor_reference<Exec>(exec)) {}
+  // exec needs to be guaranteed to live as long as this class or bad things
+  // will happen.
+  executor(Exec& exec) : exec_(exec) {}
 
   inline void spawn(function_wrapper&& fn) {
-    // Preferrably, the executor should generally move construct the erase
-    // wrapper from the input directly.
-    exec_->spawn(forward<function_wrapper>(fn));
+    exec_.spawn(forward<function_wrapper>(fn));
   }
 
  private:
-  class executor_concept {
-   public:
-    virtual void spawn(function_wrapper&& func) = 0;
-  };
-  template <typename Exec>
-  class executor_reference : public executor_concept {
-   public:
-    executor_reference(Exec& exec) : exec_(exec) {}
-    virtual void spawn(function_wrapper&& func) {
-      exec_.spawn(forward<function_wrapper>(func));
-    }
-   private:
-    Exec& exec_;
-  };
-
-  shared_ptr<executor_concept> exec_;
+  Exec& exec_;
 };
 
 // Small helper to create a packaged task on behalf of a given function.
@@ -167,12 +152,12 @@ void spawn(Exec&& exec, Func&& func, Continuation&& continuation) {
 }
 
 template <typename Func, typename Continuation>
-void spawn(executor&& exec, Func&& func, Continuation&& continuation) {
+void spawn(executor_concept&& exec, Func&& func, Continuation&& continuation) {
   exec.spawn(function_wrapper([&] { func(); continuation(); }));
 }
 
 template <typename Func>
-void spawn(executor&& exec, Func&& func) {
+void spawn(executor_concept&& exec, Func&& func) {
   exec.spawn(func);
 }
 
