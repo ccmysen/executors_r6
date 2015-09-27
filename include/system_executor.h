@@ -11,7 +11,7 @@ namespace experimental {
 
 class system_executor {
  public:
-  typedef function_wrapper wrapper_type;
+  typedef executors::work wrapper_type;
 
  public:
   static system_executor& get_executor() {

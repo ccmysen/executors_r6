@@ -11,7 +11,7 @@ namespace experimental {
 
 class thread_per_task_executor {
  public:
-  typedef function_wrapper wrapper_type;
+  typedef executors::work wrapper_type;
 
  public:
   thread_per_task_executor(thread_per_task_executor&) = delete;

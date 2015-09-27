@@ -8,19 +8,21 @@
 namespace std {
 namespace experimental {
 
+namespace executors {
+
 // Specialized type-erasing function wrapper. This basically does what
 // std::function does but is not copyable and thus allows for move-only types.
-class function_wrapper {
+class work {
  public:
-  function_wrapper() = delete;
-  function_wrapper(const function_wrapper&) = delete;
-  function_wrapper(function_wrapper&& other) {
+  work() = delete;
+  work(const work&) = delete;
+  work(work&& other) {
     wrapped_.reset(other.wrapped_.release());
   }
-  virtual ~function_wrapper() {}
+  virtual ~work() {}
 
   template <typename T>
-  function_wrapper(T&& t) {
+  work(T&& t) {
     wrapped_.reset(new erase_container<T>(forward<T>(t)));
   }
 
@@ -49,6 +51,8 @@ class function_wrapper {
 
   unique_ptr<erase_concept> wrapped_;
 };
+
+}  // namespace executors
 
 }  // namespace experimental
 }  // namespace std

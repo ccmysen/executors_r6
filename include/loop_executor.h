@@ -12,7 +12,7 @@ namespace experimental {
 
 class loop_executor {
  public:
-  typedef function_wrapper wrapper_type;
+  typedef executors::work wrapper_type;
 
  public:
   explicit loop_executor()

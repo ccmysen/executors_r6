@@ -67,52 +67,25 @@ TEST(ExecutorTest, SpawnFuture) {
 }
 
 TEST(ExecutorTest, ExecutorRefSpawnFuture) {
-  executor_ref<thread_per_task_executor> tpte_ref(
-      thread_per_task_executor::get_executor());
+  thread_per_task_executor& tpte = thread_per_task_executor::get_executor();
   atomic<int> id_gen;
   atomic_init(&id_gen, 0);
 
   constexpr int NUM_ITER = 100;
   set<int> ids;
   for (int i = 0; i < NUM_ITER; ++i) {
-    auto fut = spawn(tpte_ref, make_package(bind(&get_next_id, ref(id_gen))));
+    auto fut = spawn(tpte, make_package(bind(&get_next_id, ref(id_gen))));
     ids.insert(fut.get());
   }
 
   EXPECT_EQ(NUM_ITER, ids.size());
 }
 
-TEST(ExecutorTest, ExecutorRefCopy) {
-  thread_pool_executor tpe(1);
-  executor_ref<thread_pool_executor> tpe_ref(tpe);
-  executor_ref<thread_pool_executor> tpe_ref2(tpe_ref);
-  
-  // Should be enough to check the contained executors.
-  EXPECT_EQ(&tpe_ref.get_contained_executor(),
-            &tpe_ref2.get_contained_executor());
-
-  // Double check that we're using the same pool since there is only one thread
-  // if we are.
-  constexpr int NUM_ITER = 100;
-  set<thread::id> ids;
-  for (int i = 0; i < NUM_ITER; ++i) {
-    auto fut = spawn(tpe_ref,
-        make_package(&get_id));
-    auto fut2 = spawn(tpe_ref2,
-        make_package(&get_id));
-
-    ids.insert(fut.get());
-    ids.insert(fut2.get());
-  }
-
-  EXPECT_EQ(1, ids.size());
-}
-
-TEST(ExecutorTest, ErasedExecutors) {
+TEST(ExecutorTest, ExecutorWrapper) {
   thread_pool_executor tpe(1);
   // The erased executor should work just the same as any other executor but
   // requires that a function_wrapper be passed in.
-  executor<thread_pool_executor> exec(tpe);
+  executor_wrapper<thread_pool_executor> exec(tpe);
 
   constexpr int NUM_ITER = 100;
   set<thread::id> ids;

@@ -18,7 +18,7 @@ namespace experimental {
 // TODO: Add an allocator to the template to allow custom allocation of internal objects?
 class thread_pool_executor {
  public:
-  typedef function_wrapper wrapper_type;
+  typedef executors::work wrapper_type;
 
  public:
   // thread pools are not copyable/default constructable

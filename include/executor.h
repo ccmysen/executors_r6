@@ -11,123 +11,31 @@
 namespace std {
 namespace experimental {
 
-
-// Wrapper class which takes an executor and a function and creates a functor
-// which just spawns the task on a particular executor when called. Useful for
-// creating continuations which spawn tasks when they complete.
-template <typename Exec, typename Func>
-class executor_wrapper {
+class executor {
  public:
-  executor_wrapper(Exec& exec, Func&& func)
-    : exec_(exec), func_(forward<Func>(func)) {}
-
-  executor_wrapper(executor_wrapper&& other)
-    : exec_(other.exec_), func_(forward<Func>(other.func_)) {}
-
-  ~executor_wrapper() {}
-    
-  template <class ...Args>
-  void operator()(Args... args) {
-    // Probably not the perfect thing to make func an rvalue reference here?
-    exec_.spawn(bind(contained_function(), args...));
-  }
-
-  Exec& get_executor() {
-    return exec_;
-  }
-
-  // Allows optimizations where func is run on the same executor as the caller
-  // and thus doesn't need to call spawn.
-  Func&& contained_function() {
-    return move(func_);
-  }
- private:
-  Exec& exec_;
-  Func func_;
-};
-
-// TODO(mysen): add some tests for wrap
-template <typename Exec, typename Func>
-executor_wrapper<Exec, typename decay<Func>::type>&& wrap(Exec& exec, Func&& func) {
-  return executor_wrapper<Exec, Func>(exec, forward<Func>(func));
-}
-
-// Helper which contains an executor in a reference for easy copyability.
-template <typename Exec, typename CopyEnable=void>
-class executor_ref {
- public:
-  typedef typename Exec::wrapper_type wrapper_type;
- public:
-  executor_ref() = delete;
-  executor_ref(Exec& exec) : exec_(exec) {}
-  executor_ref(const executor_ref& other) : exec_(other.exec_) {}
-  virtual ~executor_ref() {}
-
-  template <typename Func>
-  inline void spawn(Func&& func) {
-    exec_.spawn(forward<Func>(func));
-  }
-
-  Exec& get_contained_executor() {
-    return exec_;
-  }
-
- private:
-  Exec& exec_;
-};
-
-// If the executor is copy constructible, then remove the reference and make a
-// copy instead. This eliminates the bit of overhead of references are used
-// unnecessarily.
-template <typename Exec>
-class executor_ref<Exec,
-                   typename enable_if<is_copy_constructible<Exec>::value>::type>
-{
- public:
-  typedef typename Exec::wrapper_type wrapper_type;
- public:
-  executor_ref() = delete;
-  executor_ref(Exec& exec) : exec_(exec) {}
-  executor_ref(const executor_ref& other) : exec_(other.exec_) {}
-  virtual ~executor_ref() {}
-
-  template <typename Func>
-  inline void spawn(Func&& func) {
-    exec_.spawn(forward<Func>(func));
-  }
-
-  Exec& get_contained_executor() {
-    return exec_;
-  }
-
- private:
-  Exec exec_;
-};
-
-class executor_concept {
- public:
-  virtual void spawn(function_wrapper&& func) = 0;
+  virtual void spawn(executors::work&& func) = 0;
 };
 
 template <typename Exec>
-class executor : public executor_concept {
+class executor_wrapper : public executor {
  public:
-  executor() = delete;
-  // TODO(ccmysen): figure out if we want to make copyable
-  executor(const executor& other) : exec_(other.exec_) {}
-  executor(executor&& other) : exec_(other.exec_) {}
+  executor_wrapper() = delete;
+  executor_wrapper(const executor_wrapper& other) = delete;
+  executor_wrapper(executor_wrapper&& other) = delete;
 
   // exec needs to be guaranteed to live as long as this class or bad things
   // will happen.
-  executor(Exec& exec) : exec_(exec) {}
+  executor_wrapper(Exec& exec) : exec_(exec) {}
 
-  inline void spawn(function_wrapper&& fn) {
-    exec_.spawn(forward<function_wrapper>(fn));
+  inline void spawn(executors::work&& fn) {
+    exec_.spawn(forward<executors::work>(fn));
   }
 
  private:
   Exec& exec_;
 };
+
+// TODO: consider moving the free functions into the executors:: namespace.
 
 // Small helper to create a packaged task on behalf of a given function.
 // Returns tuple of {future, packaged_task}.
@@ -152,12 +60,12 @@ void spawn(Exec&& exec, Func&& func, Continuation&& continuation) {
 }
 
 template <typename Func, typename Continuation>
-void spawn(executor_concept&& exec, Func&& func, Continuation&& continuation) {
-  exec.spawn(function_wrapper([&] { func(); continuation(); }));
+void spawn(executor&& exec, Func&& func, Continuation&& continuation) {
+  exec.spawn(executors::work([&] { func(); continuation(); }));
 }
 
 template <typename Func>
-void spawn(executor_concept&& exec, Func&& func) {
+void spawn(executor&& exec, Func&& func) {
   exec.spawn(func);
 }
 

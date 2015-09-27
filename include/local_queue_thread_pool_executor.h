@@ -20,7 +20,7 @@ namespace experimental {
 // objects?
 class local_queue_thread_pool_executor {
  public:
-  typedef function_wrapper wrapper_type;
+  typedef executors::work wrapper_type;
 
  public:
   // thread pools are not copyable/default constructable

@@ -16,7 +16,7 @@ namespace experimental {
 
 class randomized_thread_pool_executor {
  private:
-  typedef function_wrapper wrapper_type;
+  typedef executors::work wrapper_type;
 
  public:
   // thread pools are not copyable/default constructable
